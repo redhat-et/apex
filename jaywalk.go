@@ -1,18 +1,24 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/go-redis/redis"
 	"github.com/urfave/cli/v2"
 )
 
 type flags struct {
-	wireguardPubKey string
-	configFile      string
-	daemon          bool
+	wireguardPubKey  string
+	wireguardPvtKey  string
+	controllerIP     string
+	controllerPasswd string
+	listenPort       int
+	configFile       string
+	agentMode        bool
 }
 
 var (
@@ -20,11 +26,12 @@ var (
 )
 
 type jaywalkState struct {
-	nodePubKey        string
-	jaywalkConfigFile string
-	daemon            bool
-	nodeOS            string
-	wgConf            wgConfig
+	nodePubKey         string
+	nodePubKeyInConfig bool
+	jaywalkConfigFile  string
+	daemon             bool
+	nodeOS             string
+	wgConf             wgConfig
 }
 
 type wgConfig struct {
@@ -58,7 +65,7 @@ type PeerToml struct {
 }
 
 const (
-	wgListenPort     = 51871
+	wgListenPort     = 51820
 	wgLinuxConfPath  = "/etc/wireguard/"
 	wgDarwinConfPath = "/usr/local/etc/wireguard/"
 	wgConfActive     = "wg0.conf"
@@ -81,18 +88,45 @@ func main() {
 				Destination: &cliFlags.wireguardPubKey,
 				EnvVars:     []string{"JAYWALK_PUB_KEY"},
 			},
-
+			&cli.StringFlag{
+				Name:        "private-key",
+				Value:       "",
+				Usage:       "private key for the local host (required)",
+				Destination: &cliFlags.wireguardPvtKey,
+				EnvVars:     []string{"JAYWALK_PRIVATE_KEY"},
+			},
+			&cli.IntFlag{
+				Name:        "listen-port",
+				Value:       51820,
+				Usage:       "port wireguard is to listen for incoming peers on",
+				Destination: &cliFlags.listenPort,
+				EnvVars:     []string{"JAYWALK_LISTEN_PORT"},
+			},
+			&cli.StringFlag{
+				Name:        "controller",
+				Value:       "",
+				Usage:       "Address of the controller (required)",
+				Destination: &cliFlags.controllerIP,
+				EnvVars:     []string{"JAYWALK_CONTROLLER"},
+			},
+			&cli.StringFlag{
+				Name:        "controller-password",
+				Value:       "",
+				Usage:       "Password for the controller",
+				Destination: &cliFlags.controllerPasswd,
+				EnvVars:     []string{"JAYWALK_CONTROLLER_PASSWD"},
+			},
 			&cli.StringFlag{
 				Name:        "config",
-				Value:       "ops/endpoints.toml",
+				Value:       "",
 				Usage:       "configuration file",
 				Destination: &cliFlags.configFile,
 				EnvVars:     []string{"JAYWALK_CONFIG"},
 			},
 			&cli.BoolFlag{Name: "agent-mode",
-				Usage:       "run as a daemon",
+				Usage:       "run as a agentMode",
 				Value:       false,
-				Destination: &cliFlags.daemon,
+				Destination: &cliFlags.agentMode,
 				EnvVars:     []string{"JAYWALK_AGENT_MODE"},
 			},
 		},
@@ -151,20 +185,51 @@ func runInit() {
 		}
 	}
 
-	appState := &jaywalkState{
+	js := &jaywalkState{
 		nodePubKey:        cliFlags.wireguardPubKey,
 		jaywalkConfigFile: cliFlags.configFile,
-		daemon:            cliFlags.daemon,
+		daemon:            cliFlags.agentMode,
 		nodeOS:            nodeOS,
 	}
 
-	// parse the jaywalk config into wireguard config structs
-	appState.parseJaywalkConfig()
-	// write the wireguard configuration to file and deploy
-	appState.deployWireguardConfig()
+	if !cliFlags.agentMode {
+		// parse the jaywalk config into wireguard config structs
+		js.parseJaywalkConfig()
+		// write the wireguard configuration to file and deploy
+		js.deployWireguardConfig()
+	}
 
-	// if agent-mode is set, run as a daemon TODO: stuff ¯\_(ツ)_/¯
-	if cliFlags.daemon {
+	// run as a agentMode
+	if cliFlags.agentMode {
+		controller := fmt.Sprintf("%s:6379", cliFlags.controllerIP)
+		rc := redis.NewClient(&redis.Options{
+			Addr:     controller,
+			Password: cliFlags.controllerPasswd,
+		})
+
+		defer rc.Close()
+
+		pubsub := rc.Subscribe(zoneChannelBlue)
+		defer pubsub.Close()
+
+		log.Print("[INFO] waiting for configuration")
+		for {
+			msg, err := pubsub.ReceiveMessage()
+			if err != nil {
+				log.Fatalf("Failed to subscribe to the controller: %v", err)
+				os.Exit(1)
+			}
+
+			switch msg.Channel {
+			case zoneChannelBlue:
+				peerListing := handleMsg(msg.Payload)
+				if peerListing != nil {
+					log.Printf("[INFO] received message: %+v\n", peerListing)
+					js.parseJaywalkSupervisorConfig(peerListing)
+					js.deployWireguardConfig()
+				}
+			}
+		}
 		ch := make(chan os.Signal, 1)
 		signal.Notify(ch, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGINT)
 		<-ch

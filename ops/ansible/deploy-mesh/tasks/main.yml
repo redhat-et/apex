@@ -12,18 +12,35 @@
   shell: cat /etc/wireguard/public.key
   register: PUBLIC_KEY
 
+- name: Register the Public Key for the Node
+  become: yes
+  shell: cat /etc/wireguard/private.key
+  register: PRIVATE_KEY
+
+- name: Register the public facing IP (Presumes Internet Connectivity)
+  shell: curl https://checkip.amazonaws.com
+  register: PUBLIC_ADDRESS
+
 - name: Download the jaywalk binary
   become: yes
   shell: |
-    curl {{ wireguard_binary_bucket }} --output /usr/local/sbin/jaywalk
+    curl {{ poc_wireguard_binary_bucket }} --output /usr/local/sbin/jaywalk
     chmod +x /usr/local/sbin/jaywalk
 
-- name: Copy the endpoints configuration file to the remote host
-  copy:
-    src: "{{ jaywalk_conf_file }}"
-    dest: /home/{{ ansible_user }}/
+- name: Delete existing config from previous runs
+  become: yes
+  shell: |
+    killall jaywalk
+    rm /etc/wireguard/wg0.conf
+  ignore_errors: yes
 
 - name: Run Jaywalk and build the tunnels
   become: yes
   shell: |
-    jaywalk --public-key={{ PUBLIC_KEY.stdout }} --config=/home/{{ ansible_user }}/{{ jaywalk_conf_file }}
+    jaywalk --public-key={{ PUBLIC_KEY.stdout }} \
+        --private-key={{ PRIVATE_KEY.stdout }} \
+        --controller={{ controller_address }} \
+        --controller-password={{ R3dH@t2022 }} \
+        --agent-mode &
+  ignore_errors: yes
+

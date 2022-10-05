@@ -11,10 +11,10 @@ import (
 
 // parseJaywalkConfig extracts the jaywalk toml config and
 // builds the wireguard configuration data structs
-func (ps *jaywalkState) parseJaywalkConfig() {
+func (js *jaywalkState) parseJaywalkConfig() {
 	// parse toml config TODO: move out of main
 	viper.SetConfigType("toml")
-	viper.SetConfigFile(ps.jaywalkConfigFile)
+	viper.SetConfigFile(js.jaywalkConfigFile)
 	if err := viper.ReadInConfig(); err != nil {
 		log.Fatal("Unable to read config file", err)
 	}
@@ -27,52 +27,51 @@ func (ps *jaywalkState) parseJaywalkConfig() {
 	var peers []wgPeerConfig
 	var localInterface wgLocalConfig
 
-	var pubKeyExists bool
 	for _, value := range conf.Peers {
-		if value.PublicKey == ps.nodePubKey {
-			pubKeyExists = true
+		if value.PublicKey == js.nodePubKey {
+			js.nodePubKeyInConfig = true
 		}
 	}
-	if !pubKeyExists {
-		log.Fatalf("Public Key for this host was not found in %s", jaywalkConfig)
+	if !js.nodePubKeyInConfig {
+		log.Printf("Public Key for this node was not found in %s", jaywalkConfig)
 	}
 
 	for nodeName, value := range conf.Peers {
-		if value.PublicKey != ps.nodePubKey {
+		if value.PublicKey != js.nodePubKey {
 			peer := wgPeerConfig{
 				value.PublicKey,
 				value.EndpointIP,
 				[]string{value.WireguardIP},
 			}
 			peers = append(peers, peer)
-			log.Printf("[debug] Peer Node Configuration [%v] Peer AllowedIPs [%s] Peer Endpoint IP [%s] Peer Public Key [%s]\n",
+			log.Printf("[DEBUG] Peer Node Configuration [%v] Peer AllowedIPs [%s] Peer Endpoint IP [%s] Peer Public Key [%s]\n",
 				nodeName,
 				value.WireguardIP,
 				value.EndpointIP,
 				value.PublicKey)
 		}
-		if value.PublicKey == ps.nodePubKey {
+		if value.PublicKey == js.nodePubKey {
 			localInterface = wgLocalConfig{
 				value.PrivateKey,
 				value.WireguardIP,
 				wgListenPort,
 				false,
 			}
-			log.Printf("[debug] Local Node Configuration [%v] Wireguard Address [%v] Local Endpoint IP [%v] Local Private Key [%v]\n",
+			log.Printf("[DEBUG] Local Node Configuration [%v] Wireguard Address [%v] Local Endpoint IP [%v] Local Private Key [%v]\n",
 				nodeName,
 				value.WireguardIP,
 				value.EndpointIP,
 				value.PrivateKey)
 		}
 	}
-	ps.wgConf.Interface = localInterface
-	ps.wgConf.Peer = peers
+	js.wgConf.Interface = localInterface
+	js.wgConf.Peer = peers
 }
 
-func (ps *jaywalkState) deployWireguardConfig() {
+func (js *jaywalkState) deployWireguardConfig() {
 	latestCfg := &wgConfig{
-		Interface: ps.wgConf.Interface,
-		Peer:      ps.wgConf.Peer,
+		Interface: js.wgConf.Interface,
+		Peer:      js.wgConf.Peer,
 	}
 
 	cfg := ini.Empty(ini.LoadOptions{
@@ -84,7 +83,7 @@ func (ps *jaywalkState) deployWireguardConfig() {
 		log.Fatal("load ini configuration from struct error")
 	}
 
-	switch ps.nodeOS {
+	switch js.nodeOS {
 	case linux.String():
 		// wg does not create the OSX config directory by default
 		if err = createDirectory(wgDarwinConfPath); err != nil {
@@ -95,16 +94,18 @@ func (ps *jaywalkState) deployWireguardConfig() {
 		if err = cfg.SaveTo(latestConfig); err != nil {
 			log.Fatal("Save latest configuration error", err)
 		}
+		if js.nodePubKeyInConfig {
 
-		// If no config exists, copy the latest config rev to /etc/wireguard/wg0.tomlConf
-		activeConfig := filepath.Join(wgLinuxConfPath, wgConfActive)
-		if _, err = os.Stat(activeConfig); err != nil {
-			if err = applyWireguardConf(); err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			if err = updateWireguardConfig(); err != nil {
-				log.Fatal(err)
+			// If no config exists, copy the latest config rev to /etc/wireguard/wg0.tomlConf
+			activeConfig := filepath.Join(wgLinuxConfPath, wgConfActive)
+			if _, err = os.Stat(activeConfig); err != nil {
+				if err = applyWireguardConf(); err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				if err = updateWireguardConfig(); err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 	case darwin.String():
@@ -112,16 +113,21 @@ func (ps *jaywalkState) deployWireguardConfig() {
 		if err = cfg.SaveTo(activeDarwinConfig); err != nil {
 			log.Fatal("Save latest configuration error", err)
 		}
-		wgOut, err := runCommand("wg-quick", "down", wgIface)
-		if err != nil {
-			log.Printf("failed to start the wireguard interface: %v", err)
+
+		if js.nodePubKeyInConfig {
+			wgOut, err := runCommand("wg-quick", "down", wgIface)
+			if err != nil {
+				log.Printf("failed to start the wireguard interface: %v", err)
+			}
+			log.Printf("%v\n", wgOut)
+			wgOut, err = runCommand("wg-quick", "up", activeDarwinConfig)
+			if err != nil {
+				log.Printf("failed to start the wireguard interface: %v", err)
+			}
+			log.Printf("%v\n", wgOut)
+		} else {
+			log.Printf("Tunnels not built since the node's public key was found in the configuration")
 		}
-		log.Printf("%v\n", wgOut)
-		wgOut, err = runCommand("wg-quick", "up", activeDarwinConfig)
-		if err != nil {
-			log.Printf("failed to start the wireguard interface: %v", err)
-		}
-		log.Printf("%v\n", wgOut)
 	}
 }
 
