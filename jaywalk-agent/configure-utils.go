@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	common "github.com/redhat-et/jaywalking/jaywalk-agent/common"
+	"github.com/redhat-et/jaywalking/common"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
 )

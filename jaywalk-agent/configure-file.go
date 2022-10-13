@@ -4,7 +4,7 @@ import (
 	"os"
 	"path/filepath"
 
-	common "github.com/redhat-et/jaywalking/jaywalk-agent/common"
+	"github.com/redhat-et/jaywalking/common"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"gopkg.in/ini.v1"

@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	common "github.com/redhat-et/jaywalking/jaywalk-agent/common"
+	"github.com/redhat-et/jaywalking/common"
 	"os"
 	"path/filepath"
 
