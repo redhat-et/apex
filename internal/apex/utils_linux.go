@@ -162,3 +162,22 @@ func delLink(ifaceName string) error {
 
 	return nil
 }
+
+// DeleteRoute deletes a netlink route
+func DeleteRoute(prefix, dev string) error {
+	link, err := netlink.LinkByName(dev)
+	if err != nil {
+		return fmt.Errorf("unable to lookup interface %s", dev)
+	}
+
+	ipNet, err := ParseIPNet(prefix)
+	if err != nil {
+		return err
+	}
+	routeSpec := netlink.Route{
+		Dst:       ipNet,
+		LinkIndex: link.Attrs().Index,
+	}
+
+	return netlink.RouteDel(&routeSpec)
+}

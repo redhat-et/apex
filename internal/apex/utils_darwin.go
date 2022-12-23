@@ -47,3 +47,13 @@ func delLink(ifaceName string) error {
 	}
 	return nil
 }
+
+// DeleteRoute deletes a darwin route
+func DeleteRoute(prefix, dev string) error {
+	_, err := RunCommand("route", "-q", "-n", "delete", "-inet", prefix, "-interface", dev)
+	if err != nil {
+		return fmt.Errorf("no route deleted: %v", err)
+	}
+
+	return nil
+}

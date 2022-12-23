@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -427,6 +428,48 @@ func (suite *ApexIntegrationSuite) TestHubZone() {
 	suite.logger.Infof("Pinging %s from node2", node3IP)
 	err = ping(ctx, node2, node3IP)
 	assert.NoErrorf(err, gather)
+
+	// get the peer id for node3
+	allPeers, err := suite.runCommand(apexctl,
+		"--username", "kitteh2@apex.local",
+		"--password", "floofykittens",
+		"--output", "json-raw",
+		"peer", "list-all",
+	)
+	var peers []models.Peer
+	json.Unmarshal([]byte(allPeers), &peers)
+	assert.NoErrorf(err, "apexctl peer list-all error: %v\n", err)
+
+	var peer3ID string
+	for _, p := range peers {
+		if p.NodeAddress == node1IP {
+			node3IP = p.NodeAddress
+			peer3ID = p.ID.String()
+		}
+	}
+
+	// delete the peer node2
+	_, err = suite.runCommand(apexctl,
+		"--username", "kitteh2@apex.local",
+		"--password", "floofykittens",
+		"peer", "delete",
+		"--peer-id", peer3ID,
+	)
+	require.NoError(err)
+
+	// this is probably more time than needed for convergence as polling is currently 5s
+	time.Sleep(time.Second * 10)
+	gather = suite.gatherFail(ctx, node1, node2, node3)
+
+	// verify the deleted peer details are no longer in a peer's tables
+	node2routes := suite.routesDump(ctx, node2)
+	node2dump := suite.wgDump(ctx, node2)
+	if strings.Contains(node2routes, node3IP) {
+		assert.Errorf(err, "found deleted peer node still in routing tables of a peer", gather)
+	}
+	if strings.Contains(node2dump, node3IP) {
+		assert.Errorf(err, "found deleted peer node still in wg show wg0 dump tables of a peer", gather)
+	}
 }
 
 // TestChildPrefix tests requesting a specific address in a newly created zone
