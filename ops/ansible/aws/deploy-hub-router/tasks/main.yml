@@ -14,6 +14,10 @@
       - iperf3
     state: latest
 
+- name: Print the API Server IP
+  debug:
+    msg: "{{ controller_address }}"
+
 - name: Kill any existing apex process from previous runs
   shell: |
     sudo killall apex 2> /dev/null

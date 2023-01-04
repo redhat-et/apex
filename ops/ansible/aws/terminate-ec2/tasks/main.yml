@@ -1,6 +1,6 @@
 ---
 # tasks file for terminate-ec2
-- name: Terminate all running ec2 instances in the region us-east-1 with the tag "{{ aws_nodetype_tag }}"
+- name: Terminate all running ec2 instances in the region us-east-1 with the nodeType tag "{{ aws_nodetype_tag }}"
   become: false
   ec2_instance:
     state: absent

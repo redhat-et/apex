@@ -1,9 +1,9 @@
 ### Globals ###
 aws_region: us-east-1                 # AWS region
 aws_image_id: ami-052efd3df9dad4825   # Ubuntu 22.04 (this can be changed to most any Linux distro)
-aws_key_name: <YOUR_EC2_KEY_NAME>     # the key pair on your aws account to use
+aws_key_name: patu-ci                 # the key pair on your aws account to use
 aws_instance_type: t2.micro           # t2.micro is free tier eligable, but you can use any type to scale up, more examples [t2.large, t2.xlarge, t2.2xlarge]
-aws_nodetype_tag: apex-demo-nodes     # Unique tag identifier for ec2 instances
+aws_nodetype_tag: apex-e2e            # Unique tag identifier for ec2 instances
 ansible_user: ubuntu                  # this is the default user ID for your AMI image. Example, AWS AMI is ec2-user etc
 security_group_description: "Apex Testing and Demos"
 inventory_location: inventory.txt     # leaving this as is will use the inventory.txt file in the base directory
@@ -16,17 +16,17 @@ aws_subnet_blue: subnet-c8db48e9           # VPC subnet id from your aws account
 
 ### Red VPC Details ###
 secgroup_name_red: ApexRed
-secgroup_id_red: sg-025e719f27ac1af10    # the security group name can be an existing group or else it will be created by the playbook
+secgroup_id_red: sg-025e719f27ac1af10      # the security group name can be an existing group or else it will be created by the playbook
 node_count_red: 2                          # the number of cluster nodes you want to deploy
 vpc_id_red: vpc-0110617328fb491f8          # VPC id from your aws account
-aws_subnet_red: subnet-08c72986ee9792e8b # VPC subnet id from your aws account
+aws_subnet_red: subnet-08c72986ee9792e8b   # VPC subnet id from your aws account
 
 ### Green VPC Details ###
 secgroup_name_green: ApexGreen
-secgroup_id_green: sg-039d3246c3daabac3   # the security group name can be an existing group or else it will be created by the playbook
+secgroup_id_green: sg-039d3246c3daabac3     # the security group name can be an existing group or else it will be created by the playbook
 node_count_green: 2                         # the number of cluster nodes you want to deploy
 vpc_id_green: vpc-0566e09aa71f553c1         # VPC id from your aws account
-aws_subnet_green: subnet-0f8a1403fde2af94e           # VPC subnet id from your aws account
+aws_subnet_green: subnet-0f8a1403fde2af94e  # VPC subnet id from your aws account
 
 ### Controller Section (values are there for example, replace with your environment) ###
 controller_address: <CONTROLLER_ADDRESS>

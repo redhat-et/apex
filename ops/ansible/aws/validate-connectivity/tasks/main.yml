@@ -1,0 +1,33 @@
+---
+# tasks file for validate-connectivity
+- name: Pause for 60 for convergence
+  pause:
+    seconds: 60
+
+- name: Summarize spoke nodes + relay node for a connectivity range
+  set_fact:
+    spoke_range_end: "{{ node_count_blue + node_count_red + node_count_green + 1 }}"
+
+- name: Get the first 3 octets of the zone prefix
+  shell: echo {{ apex_zone_prefix }} | head -c -6
+  register: ip_prefix
+
+- set_fact:
+    ip_prefix={{ ip_prefix.stdout }}
+
+- name: Debug
+  debug:
+    msg: "Running connectivity test on spoke node: {{ inventory_hostname }}"
+
+- name: Verify Connectivity from the relay node to all spokes
+  become: yes
+  shell: |
+    printf "====== Connectivity Results from Node: {{ inventory_hostname }} ======\n" > connectivity-results.txt
+    fping -s -g  {{ ip_prefix }}.1 {{ ip_prefix }}.{{ spoke_range_end }} >> connectivity-results.txt 2>&1
+  ignore_errors: yes
+
+- name: Copy connectivity results back to the runner
+  ansible.builtin.fetch:
+    src: /home/{{ ansible_user }}/connectivity-results.txt
+    dest: ./
+    flat: true
