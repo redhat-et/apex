@@ -28,3 +28,10 @@
     - vars.yml
   roles:
     - role: deploy-mesh
+
+# Validate nodes by running a connectivity test from the spoke node for QA e2e deployment
+- hosts:  "{{ groups['apexNodes'][0] }}"
+  vars_files:
+    - vars.yml
+  roles:
+    - role: validate-connectivity

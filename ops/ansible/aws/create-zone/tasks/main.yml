@@ -19,7 +19,7 @@
 
 - name: Copy rootCA.pem
   copy:
-    src: ./rootCA.pem
+    src: rootCA.pem
     dest: .certs/
     mode: 0644
 
@@ -35,6 +35,16 @@
   shell: |
     sudo killall apex 2> /dev/null
   ignore_errors: yes
+
+# Comment out the next two blocks and define "{{ controller_address }}" in vars.yml
+# if you are using a seperate api-server and not provisioning via Ansible
+#- name: Set the controller address fact
+#  set_fact:
+#    controller_address: "{{ hostvars[groups['apiServerNode'][0]]['inventory_hostname'] }}"
+
+- name: Print the API Server IP
+  debug:
+    msg: "{{ controller_address }}"
 
 - name: Delete hosts file
   become: yes
@@ -58,11 +68,11 @@
       {{ controller_address }} auth.apex.local api.apex.local apex.local
 
 # Optionally clean all remnants of a previous run (agent will do this as well)
-#- name: Delete wg0
-#  become: yes
-#  shell: |
-#    sudo ip link del wg0
-#  ignore_errors: yes
+- name: Delete wg0
+  become: yes
+  shell: |
+    sudo ip link del wg0
+  ignore_errors: yes
 
 - name: Download the Apex Agent Binary
   shell: |

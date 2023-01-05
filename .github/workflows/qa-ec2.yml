@@ -1,0 +1,76 @@
+name: qa-ec2-e2e
+
+on: workflow_dispatch
+
+jobs:
+  deploy-ec2:
+    name: deploy-ec2-e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+    env:
+      AWS_REGION: "us-east-1"
+#      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ANSIBLE_VAULT_PASSWORD_FILE: "vault-secret.txt"
+      ANSIBLE_PRIVATE_KEY_FILE: "apex.pem"
+      ANSIBLE_HOST_KEY_CHECKING: "false"
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+
+      - name: Build
+        run: |
+          make dist/apex-linux-amd64
+
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          role-session-name: apex-ci-deploy
+          aws-region: us-east-1
+
+      - name:  Copy Agent Binary to S3
+        run: |
+          aws s3 cp ./dist/apex-linux-amd64 s3://apex-net/ec2-e2e/
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install Ansible and Dependencies
+        run: pip3.10 install boto boto3 ansible-vault ansible-core==2.13.3
+
+      - name: Install amazon.aws Ansible library
+        run: ansible-galaxy collection install amazon.aws
+
+      - name: Create Ansible Secrets
+        run: |
+          echo "${{ secrets.ANSIBLE_SSH_KEY }}" > apex.pem
+          chmod 0400 apex.pem
+          echo "${{ secrets.ANSIBLE_VAULT_PASSWORD }}" > vault-secret.txt
+          chmod 0400 vault-secret.txt
+          echo "${{ secrets.ROOT_CA }}" > ./ops/ansible/aws/rootCA.pem
+          chmod 0400 ops/ansible/aws/rootCA.pem
+          echo "${{ secrets.ANSIBLE_VARS }}" > ./ops/ansible/aws/vars.yml
+          aws s3 cp ./ops/ansible/aws/vars.yml s3://apex-net/ec2-e2e/
+
+      - name: Deploy EC2 Playbooks
+        run: |
+          ansible-playbook -vv ./ops/ansible/aws/deploy-ec2.yml \
+          -i ./ops/ansible/aws/inventory.txt \
+          --private-key apex.pem \
+          --vault-password-file vault-secret.txt
+
+      - name: Mesh Connectivity Results
+        run: cat ./ops/ansible/aws/connectivity-results.txt
+
+      - name: Terminate EC2 Instances
+        if: always()
+        run: |
+          ansible-playbook -vv ./ops/ansible/aws/terminate-instances.yml

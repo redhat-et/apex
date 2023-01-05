@@ -22,7 +22,7 @@
 
 - name: Copy rootCA.pem
   copy:
-    src: ./rootCA.pem
+    src: rootCA.pem
     dest: .certs/
     mode: 0644
 
@@ -46,9 +46,13 @@
     sudo touch /etc/hosts
   ignore_errors: yes
 
+- name: Print the API Server IP
+  debug:
+    msg: "{{ controller_address }}"
+
 - name: Add controller host entry
   become: yes
-  ansible.builtin.blockinfile:
+  blockinfile:
     path: /etc/hosts
     block: |
       127.0.0.1 localhost
