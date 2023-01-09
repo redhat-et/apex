@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: apex-client-secret
+  namespace: apex
+type: Opaque
+data:
+  ca.cert: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJlekNDQVNHZ0F3SUJBZ0lSQUwwM0FNRTBWWFJZM2cwSHJrOTVHWWt3Q2dZSUtvWkl6ajBFQXdJd0hURWIKTUJrR0ExVUVBeE1TWVhCbGVDMXpaV3htYzJsbmJtVmtMV05oTUI0WERUSXpNREV3T1RBM05ERXlORm9YRFRJegpNRFF3T1RBM05ERXlORm93SFRFYk1Ca0dBMVVFQXhNU1lYQmxlQzF6Wld4bWMybG5ibVZrTFdOaE1Ga3dFd1lICktvWkl6ajBDQVFZSUtvWkl6ajBEQVFjRFFnQUVCMUFuME9wY3RiczdMbXNyWk5NL25OellxR1dVdmNCTzNMNnMKZVo5dVRxT3pDYWhxd1hWNmpDWGttbTVvLzZuMDg5TlJZZmEwOXlmVUNIZG5ZVHY0YzZOQ01FQXdEZ1lEVlIwUApBUUgvQkFRREFnS2tNQThHQTFVZEV3RUIvd1FGTUFNQkFmOHdIUVlEVlIwT0JCWUVGTmNmZVlYQTRzajJmTlMwCjhRYVNGSFRheTlyZk1Bb0dDQ3FHU000OUJBTUNBMGdBTUVVQ0lBZjlEZzhsK01IWGg5RFpxTUs2RDJXek9id0kKNWsyU05nWnppRWN0bktFREFpRUFqcU5XL3VJeFFHUG5HdnJsbjRJMHZjcW9zYUhuZG45VVVxQ3RueG05SllJPQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+stringData:
+  url: https://apex.local
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apex
+  namespace: apex
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: apex-client
+      app.kubernetes.io/instance: apex-client
+      app.kubernetes.io/name: apex-client
+      app.kubernetes.io/part-of: apex
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: apex-client
+        app.kubernetes.io/instance: apex-client
+        app.kubernetes.io/name: apex-client
+        app.kubernetes.io/part-of: apex
+    spec:
+      hostNetwork: true
+      initContainers:
+        - name: cert-setup
+          image: quay.io/apex/apex:latest
+          imagePullPolicy: Always
+          command:
+            [
+              "/bin/sh",
+              "-c",
+              "mkdir -p .certs; cp /cert/ca.cert .certs/rootCA.pem; CAROOT=/.certs ./mkcert -install",
+            ]
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cacert
+              mountPath: "/cert"
+              readOnly: true
+      containers:
+        - name: apex-client
+          image: quay.io/apex/apex:latest
+          imagePullPolicy: Always
+          command:
+            - /apex
+          args:
+            - https://apex.local
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cacert
+              mountPath: "/cert"
+              readOnly: true
+      nodeName: "apex-dev-worker"
+      volumes:
+        - name: cacert
+          secret:
+            defaultMode: 420
+            optional: false
+            secretName: apex-client-secret
