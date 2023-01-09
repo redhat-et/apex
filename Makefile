@@ -67,7 +67,11 @@ e2e: dist/apex dist/apexctl test-images
 unit:
 	go test -v ./...
 
-.PHONY: images image-frontend image-apiserver
+.PHONY: images image-frontend image-apiserver image-apex
+image-apex:
+	docker build -f Containerfile.apex -t quay.io/apex/apex:$(TAG) .
+	docker tag quay.io/apex/apex:$(TAG) quay.io/apex/apex:latest
+
 image-frontend:
 	docker build -f Containerfile.frontend -t quay.io/apex/frontend:$(TAG) .
 	docker tag quay.io/apex/frontend:$(TAG) quay.io/apex/frontend:latest
@@ -76,4 +80,7 @@ image-apiserver:
 	docker build -f Containerfile.apiserver -t quay.io/apex/apiserver:$(TAG) .
 	docker tag quay.io/apex/apiserver:$(TAG) quay.io/apex/apiserver:latest
 
+# Not build image-apex with this target, 
+# because for local environment we don't need apex image,
+# so save some build time.
 images: image-frontend image-apiserver

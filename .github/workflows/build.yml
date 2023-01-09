@@ -258,9 +258,7 @@ jobs:
       - name: Setup KIND
         run: |
           ./hack/kind/kind.sh up
-          mkdir -p $(pwd)/.certs
-          kubectl get secret -n apex apex-ca-key-pair -o json | jq -r '.data."ca.crt"' | base64 -d > $(pwd)/.certs/rootCA.pem
-          CAROOT=$(pwd)/.certs mkcert -install
+          ./hack/kind/kind.sh cacert
 
       - name: Build ubuntu test image
         uses: docker/build-push-action@v3

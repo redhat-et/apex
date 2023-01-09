@@ -59,6 +59,21 @@ jobs:
             quay.io/apex/frontend:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      
+      - name: Build and export apex
+        id: build-apex
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64, windows/amd64
+          push: true
+          file: ./Containerfile.apex
+          tags: |
+            quay.io/apex/apex:latest
+            quay.io/apex/apex:${{ github.sha }}
+            quay.io/apex/apex:${{ github.ref_name }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   update-deployment:
     name: Update Deployment
