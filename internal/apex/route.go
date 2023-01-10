@@ -2,6 +2,8 @@ package apex
 
 import (
 	"net"
+
+	"github.com/redhat-et/apex/internal/models"
 )
 
 // handlePeerRoute when a new configuration is deployed, delete/add the peer allowedIPs
@@ -60,5 +62,42 @@ func (ax *Apex) addChildPrefixRoute(childPrefix string) {
 
 	if err := AddRoute(childPrefix, ax.tunnelIface); err != nil {
 		ax.logger.Infof("error adding the child prefix route: %v", err)
+	}
+}
+
+// handlePeerRoute when a peer is this handles route deletion
+func (ax *Apex) handlePeerRouteDelete(dev string, wgPeerConfig models.Peer) {
+	switch ax.os {
+	case Darwin.String():
+		// TODO: OSX route lookups
+		for _, allowedIP := range wgPeerConfig.AllowedIPs {
+			if err := DeleteRoute(allowedIP, dev); err != nil {
+				ax.logger.Debug(err)
+			}
+		}
+
+	case Linux.String():
+		for _, allowedIP := range wgPeerConfig.AllowedIPs {
+			routeExists, err := RouteExists(allowedIP)
+			if routeExists {
+				continue
+			}
+			if err != nil {
+				ax.logger.Debug(err)
+			}
+			if routeExists {
+				if err := DeleteRoute(allowedIP, dev); err != nil {
+					ax.logger.Debug(err)
+				}
+			}
+		}
+
+	case Windows.String():
+		// TODO: Windoze route lookups
+		for _, allowedIP := range wgPeerConfig.AllowedIPs {
+			if err := DeleteRoute(allowedIP, dev); err != nil {
+				ax.logger.Debug(err)
+			}
+		}
 	}
 }

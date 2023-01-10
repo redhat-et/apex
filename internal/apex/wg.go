@@ -1,11 +1,13 @@
 package apex
 
 import (
+	"fmt"
 	"math/rand"
 	"net"
 	"strconv"
 	"time"
 
+	"github.com/redhat-et/apex/internal/models"
 	"golang.zx2c4.com/wireguard/wgctrl"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
@@ -97,6 +99,68 @@ func (ax *Apex) addPeer(wgPeerConfig wgPeerConfig) error {
 	}
 
 	return wgClient.ConfigureDevice(ax.tunnelIface, cfg)
+}
+
+func (ax *Apex) handlePeerDelete(peerListing []models.Peer) error {
+	// if the canonical peer listing does not contain a peer from cache, delete the peer
+	for _, p := range ax.peerCache {
+		if inPeerListing(peerListing, p) {
+			continue
+		}
+		ax.logger.Debugf("Deleting peer with key: %s\n", ax.keyCache[p.DeviceID])
+		if err := ax.deletePeer(ax.keyCache[p.DeviceID], ax.tunnelIface); err != nil {
+			return fmt.Errorf("failed to delete peer: %v", err)
+		}
+		// delete the peer route(s)
+		ax.handlePeerRouteDelete(ax.tunnelIface, p)
+		// remove peer from local peer and key cache
+		delete(ax.peerCache, p.ID)
+		delete(ax.keyCache, p.DeviceID)
+
+	}
+
+	return nil
+}
+
+func (ax *Apex) deletePeer(publicKey, dev string) error {
+	wgClient, err := wgctrl.New()
+	if err != nil {
+		return err
+	}
+	defer wgClient.Close()
+
+	key, err := wgtypes.ParseKey(publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to parse public key %s %v", publicKey, err)
+	}
+
+	cfg := []wgtypes.PeerConfig{
+		{
+			PublicKey: key,
+			Remove:    true,
+		},
+	}
+
+	err = wgClient.ConfigureDevice(dev, wgtypes.Config{
+		ReplacePeers: false,
+		Peers:        cfg,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to remove peer with key %s %v", key, err)
+	}
+
+	ax.logger.Infof("Removed peer with key %s", key)
+	return nil
+}
+
+func inPeerListing(peers []models.Peer, p models.Peer) bool {
+	for _, peer := range peers {
+		if peer.ID == p.ID {
+			return true
+		}
+	}
+	return false
 }
 
 func getWgListenPort() int {

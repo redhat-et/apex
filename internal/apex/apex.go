@@ -331,6 +331,7 @@ func (ax *Apex) Reconcile(zoneID uuid.UUID, firstTime bool) error {
 			newPeers = append(newPeers, p)
 		}
 	}
+
 	if changed {
 		ax.logger.Debugf("Peers listing has changed, recalculating configuration")
 		ax.buildPeersConfig()
@@ -338,6 +339,15 @@ func (ax *Apex) Reconcile(zoneID uuid.UUID, firstTime bool) error {
 			return err
 		}
 	}
+
+	if len(ax.peerCache) > len(peerListing) {
+		ax.logger.Debugf("Peer deletion detected")
+
+		if err := ax.handlePeerDelete(peerListing); err != nil {
+			ax.logger.Error(err)
+		}
+	}
+
 	return nil
 }
 

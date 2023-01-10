@@ -48,3 +48,13 @@ func linkExists(wgIface string) bool {
 func delLink(wgIface string) (err error) {
 	return nil
 }
+
+// DeleteRoute deletes a windows route
+func DeleteRoute(prefix, dev string) error {
+	_, err := RunCommand("netsh", "int", "ipv4", "del", "route", prefix, dev)
+	if err != nil {
+		return fmt.Errorf("no route deleted: %v", err)
+	}
+
+	return nil
+}
