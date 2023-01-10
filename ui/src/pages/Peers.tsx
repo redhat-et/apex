@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import {
     Datagrid,
     List,
@@ -9,14 +10,23 @@ import {
     useRecordContext,
     useGetOne,
     Loading,
+    BulkExportButton,
+    BulkDeleteButton,
 } from 'react-admin';
 
 const peerFilters =  [
     <ReferenceInput source="device_id" label="Device" reference="devices" />,
 ]
 
+const PeerListBulkActions = () => (
+    <Fragment>
+        <BulkExportButton />
+        <BulkDeleteButton />
+    </Fragment>
+);
+
 export const PeerList = () => (
-    <List filters={peerFilters}>
+    <List filters={peerFilters} bulkActionButtons={<PeerListBulkActions/>}>
         <Datagrid rowClick="show" bulkActionButtons={false} >
             <ReferenceField label="Device" source="device_id" reference='devices' link="show"/>
             <ReferenceField label="Zone" source="zone_id" reference='zones' link="show" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, } from "react-query";
 import {
     Datagrid,
@@ -17,6 +17,8 @@ import {
     ExportButton,
     TopToolbar,
     useDataProvider,
+    BulkDeleteButton,
+    BulkExportButton,
 } from 'react-admin';
 
 const ZoneCreateButton = () => {
@@ -42,8 +44,31 @@ const ListActions = () => (
     </TopToolbar>
 );
 
+const ZoneBulkDeleteButton = () => {
+    const [disableCreate, setDisableCreate] = useState(false);
+    const dataProvider = useDataProvider();
+
+    useEffect(() => {
+        dataProvider.getFlag("multi-zone")
+            .then((response: any) => {
+                setDisableCreate(response.json["multi-zone"] != true)
+            });
+    });
+
+    return (
+        <BulkDeleteButton disabled={disableCreate}/>
+    );
+};
+
+const ZoneListBulkActions = () => (
+    <Fragment>
+        <BulkExportButton />
+        <ZoneBulkDeleteButton />
+    </Fragment>
+);
+
 export const ZoneList = () => (
-    <List actions={<ListActions/>}>
+    <List actions={<ListActions/>} bulkActionButtons={<ZoneListBulkActions/>}>
         <Datagrid rowClick="show" bulkActionButtons={false}>
             <TextField label="Name" source="name" />
             <TextField label="Description" source="description" />

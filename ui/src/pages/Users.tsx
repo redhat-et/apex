@@ -1,4 +1,4 @@
-
+import { Fragment } from "react";
 import { 
     Datagrid,
     List,
@@ -8,12 +8,21 @@ import {
     SimpleShowLayout,
     SingleFieldList,
     ChipField,
-    ReferenceField
+    ReferenceField,
+    BulkExportButton,
+    BulkDeleteButton,
 } from 'react-admin';
+
+const UserListBulkActions = () => (
+    <Fragment>
+        <BulkExportButton />
+        <BulkDeleteButton />
+    </Fragment>
+);
 
 export const UserList = () => (
     <List>
-        <Datagrid rowClick="show" bulkActionButtons={false}>
+        <Datagrid rowClick="show" bulkActionButtons={<UserListBulkActions/>}>
             <TextField label = "Username" source="username" />
             <ReferenceField source="zone_id" reference="zones" />
             <ReferenceArrayField label="Devices" source="devices" reference="devices">

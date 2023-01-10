@@ -1,4 +1,4 @@
-
+import { Fragment } from "react";
 import {
     Datagrid,
     List,
@@ -10,7 +10,9 @@ import {
     ReferenceField,
     useRecordContext,
     useGetOne,
-    Loading
+    Loading,
+    BulkExportButton,
+    BulkDeleteButton,
 } from 'react-admin';
 
 const ZoneNameFromPeer = () => {
@@ -22,9 +24,16 @@ const ZoneNameFromPeer = () => {
     return <div>{zone.name}</div>;
 };
 
+const DeviceListBulkActions = () => (
+    <Fragment>
+        <BulkExportButton />
+        <BulkDeleteButton />
+    </Fragment>
+);
+
 export const DeviceList = () => (
     <List>
-        <Datagrid rowClick="show" bulkActionButtons={false}>
+        <Datagrid rowClick="show" bulkActionButtons={<DeviceListBulkActions/>}>
             <TextField label = "Hostname" source="hostname" />
             <ReferenceField label = "User" source="user_id" reference="users" link="show"/>
             <ReferenceArrayField label="Peered Zones" source="peers" reference="peers">
