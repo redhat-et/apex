@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@babel/core": "^7.0.0",
+    "@babel/core": "^7.20.12",
     "@emotion/babel-plugin": "11.10.2",
     "@fortawesome/fontawesome-svg-core": "~1 || ~6",
     "@fortawesome/free-brands-svg-icons": "^6.2.0",
